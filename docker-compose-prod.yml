@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  infy-pdf:
+    image: infytv/infy:pdf-latest
+    container_name: infy_pdf
+    restart: always
+    environment:
+      - PORT=8080
+    command: go run main.go
+    ports:
+      - "9090:8080"

@@ -1,19 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
-	"github.com/SebastiaanKlippert/go-wkhtmltopdf"
-	"github.com/tdewolff/minify/v2"
-	"github.com/tdewolff/minify/v2/css"
-	"github.com/tdewolff/minify/v2/html"
-	"github.com/tdewolff/minify/v2/js"
-
-	"os"
+	"github.com/infytvcode/pdf-generator/pdf"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -28,6 +21,7 @@ type GeneratePDFResponse struct {
 	Message string `json:"message"`
 }
 
+/*
 func generatePDF(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -80,6 +74,7 @@ func generatePDF(w http.ResponseWriter, r *http.Request) {
 
 	err = pdfg.Create()
 	if err != nil {
+		fmt.Printf("err: %v\n", err)
 		http.Error(w, "Error generating PDF", http.StatusInternalServerError)
 		return
 	}
@@ -105,16 +100,46 @@ func generatePDF(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(jsonResponse)
 }
+*/
+
+func create_pdf(w http.ResponseWriter, r *http.Request) {
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var generatePDFRequest GeneratePDFRequest
+	err = json.Unmarshal(reqBody, &generatePDFRequest)
+	if err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	pdfc := pdf.NewPDFProvider()
+	html_b := bytes.NewBuffer([]byte(generatePDFRequest.HTML))
+	pdfg, err := pdfc.CreatePDF(*html_b)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fileName := "infytv.pdf"
+	if generatePDFRequest.Filename != "" {
+		fileName = generatePDFRequest.Filename
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+	w.Write(pdfg)
+}
 
 func main() {
-	os.Setenv("WKHTMLTOPDF_PATH", os.Getenv("LAMBDA_TASK_ROOT"))
-	// http.HandleFunc("/generate-pdf", generatePDF)
-	// http.ListenAndServe(":8080", nil)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
+		w.Write([]byte("Infy.TV PDF Service"))
 	})
-	r.Post("/generate-pdf", generatePDF)
+	// r.Post("/generate-pdf", generatePDF)
+	r.Post("/create-pdf", create_pdf)
 	http.ListenAndServe(":8080", r)
 }
